@@ -1,0 +1,121 @@
+# Proyecto-Mineria
+
+El objetivo de este proyecto es sacar información sobre reviews de aplicaciones para saber que es lo que el usuario promedio valora en una aplicación tipo red social
+
+## Hito 0
+
+Definir la ruta donde se encontraran los archivos
+
+```{r}
+# Cambiar linea hasta ver una forma mejor de definir la ruta al archivo de los csv
+#setwd("/Users/felipevaldebenitobravo/Desktop/Universidad/8vo_Semestre/Mineria/Repo_Proyecto")
+```
+
+Definir los datasets con los que se trabajara (por ahora)
+
+```{r}
+ds_instagram <- read.csv("instagram.csv")
+ds_threads <- read.csv("threads.csv")
+```
+
+Testeo de los dataframes si son visibles
+```{r}
+head(ds_instagram)
+head(ds_threads)
+```
+
+Uso del bag-of-words
+
+```{r}
+library(tm)
+
+docs_insta <- VectorSource(ds_instagram[, 1])
+docs_insta <- VCorpus(docs_insta)
+
+#inspect(docs_insta)
+
+```
+
+Remover datos no interesantes
+
+```{r}
+docs_insta <- tm_map(docs_insta, removePunctuation)
+docs_insta <- tm_map(docs_insta, removeNumbers)
+docs_insta <- tm_map(docs_insta, content_transformer(tolower))
+docs_insta <- tm_map(docs_insta, stripWhitespace)
+#docs_insta <- tm_map(docs_insta, content_transformer(gsub), pattern = "'", replacement = " ")
+docs_insta <- tm_map(docs_insta, content_transformer(gsub), pattern = '[[:digit:]]+', replacement = "")
+
+
+docs_insta <- tm_map(docs_insta, removeWords, stopwords("en"))
+#docs_insta <- tm_map(docs_insta, replace_symbol)
+
+```
+
+```{r}
+head(stopwords("en"),100)
+```
+
+
+Matriz Doc termino
+
+```{r}
+dtm <- DocumentTermMatrix(docs_insta)
+inspect(dtm)
+```
+
+Ver dimensiones e inspeccionar matriz
+
+```{r}
+dim(dtm)
+inspect(dtm[1:3,1:10])
+# Aqui hay que ver como filtrar esas cosas, las opiniones en otro alfabeto por ejemplo o los emojis en texto
+```
+
+Terminos mas frecuentes graficados
+
+```{r}
+# Hay que tener cuidado con esta matriz pq va a ser exageradamente grande y como R es de perro consume mucha ram, voy a ver alternativas
+#dtm.matrix <- as.matrix(dtm) 
+
+library(qdap)
+library(dplyr)
+library(tidytext) # use esta libreria, si hay mejores opciones avisen
+
+inst_td <- tidy(dtm)
+inst_td <- aggregate(count ~ term, inst_td, sum)
+inst_td <- inst_td[order(inst_td$count, decreasing = TRUE),]
+inst_td
+
+```
+
+```{r}
+#dtm_ordered <- dtm[order(dtm)]
+#dtm.matrix <- as.matrix(dtm_ordered[1:20,1:20])
+
+
+#freq <- colSums(dtm)
+#word_freq <- data.frame(word = names(freq), freq = freq, row.names = NULL)
+#word_freq <- word_freq[order(-word_freq$freq),]
+```
+
+
+
+```{r}
+library(ggplot2)
+
+#ggplot(word_freq[1:20,], aes(x = reorder(word, freq), y = freq)) +
+#          geom_bar(stat = "identity") + 
+#          coord_flip()+
+#          ggtitle(label = "Top-20 palabras de la colección")
+
+ggplot(inst_td[1:20,]) + 
+  geom_bar(aes(x = reorder(term,count), y = count), stat="identity") + 
+  coord_flip() + 
+  ggtitle("Top 20 palabras de la coleccion") + 
+  xlab("Palabra") + ylab("Frecuencia (cantidad)")
+```
+
+
+
+
