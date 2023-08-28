@@ -32,6 +32,9 @@ library(tm)
 docs_insta <- VectorSource(ds_instagram[, 1])
 docs_insta <- VCorpus(docs_insta)
 
+docs_threads <- VectorSource(ds_threads[, 2])
+docs_threads <- VCorpus(docs_threads)
+
 #inspect(docs_insta)
 
 ```
@@ -59,6 +62,28 @@ docs_insta <- tm_map(docs_insta, content_transformer(shortWordRemover))
 docs_insta <- tm_map(docs_insta, content_transformer(twitterHandleRemover))
 docs_insta <- tm_map(docs_insta, content_transformer(hashtagRemover))
 
+
+#----------------------------
+
+docs_threads <- tm_map(docs_threads, removePunctuation) # Remover la puntuacion
+docs_threads <- tm_map(docs_threads, removeNumbers) # Remover lo relacionado a numeros del texto
+docs_threads <- tm_map(docs_threads, content_transformer(tolower)) # Poner todo en minuscula
+docs_threads <- tm_map(docs_threads, stripWhitespace) # Modificar los espacios en blanco a que sean uno solo
+docs_threads <- tm_map(docs_threads, content_transformer(gsub), pattern = '[[:digit:]]+', replacement = "") # Eliminar digitos
+
+
+docs_threads <- tm_map(docs_threads, removeWords, stopwords("en")) # Eliminar las stopwords en ingles
+
+# Funciones para remover aspectos en especifico de los comentarios, como urls, simbolos, etc. Falta añadir filtros de emojis y cosas por el estilo
+twitterHandleRemover <- function(x) gsub("@\\S+","", x)
+shortWordRemover <- function(x) gsub('\\b\\w{1,5}\\b','',x)
+urlRemover <- function(x) gsub("http:[[:alnum:]]*","", x)
+hashtagRemover <- function(x) gsub("#\\S+","", x)
+
+docs_threads <- tm_map(docs_threads, content_transformer(urlRemover))
+docs_threads <- tm_map(docs_threads, content_transformer(shortWordRemover))
+docs_threads <- tm_map(docs_threads, content_transformer(twitterHandleRemover))
+docs_threads <- tm_map(docs_threads, content_transformer(hashtagRemover))
 ```
 
 ```{r}
@@ -71,15 +96,21 @@ Matriz Doc termino
 
 ```{r}
 # Generacion de matriz por cada palabra detectada en cada oracion
-dtm <- DocumentTermMatrix(docs_insta)
-inspect(dtm)
+dtm1 <- DocumentTermMatrix(docs_insta)
+inspect(dtm1)
+
+dtm2 <- DocumentTermMatrix(docs_threads)
+inspect(dtm2)
 ```
 
 Ver dimensiones e inspeccionar matriz
 
 ```{r}
-dim(dtm)
-inspect(dtm[1:3,1:10])
+dim(dtm1)
+inspect(dtm1[1:3,1:10])
+
+dim(dtm2)
+inspect(dtm2[1:3,1:10])
 # Aqui hay que ver como filtrar esas cosas, las opiniones en otro alfabeto por ejemplo o los emojis en texto
 ```
 
@@ -94,11 +125,17 @@ library(dplyr)
 library(tidytext) # use esta libreria, si hay mejores opciones avisen
 
 # Aqui se ordena una tabla que contendra la informacion de cantidad de palabras en total existentes en la matriz, sumandose todas las repeticiones a modo de frecuencia
-inst_td <- tidy(dtm)
+inst_td <- tidy(dtm1)
 inst_td <- aggregate(count ~ term, inst_td, sum)
 inst_td <- inst_td[order(inst_td$count, decreasing = TRUE),]
-inst_td <- inst_td[inst_td$count >= 50, ]
+inst_td <- inst_td[inst_td$count >= 20, ]
 inst_td
+
+thre_td <- tidy(dtm2)
+thre_td <- aggregate(count ~ term, thre_td, sum)
+thre_td <- thre_td[order(thre_td$count, decreasing = TRUE),]
+thre_td <- thre_td[thre_td$count >= 10, ]
+thre_td
 
 ```
 
@@ -129,7 +166,17 @@ ggplot(inst_td[1:20,]) +
   coord_flip() + 
   ggtitle("Top 20 palabras de la coleccion") + 
   xlab("Palabra") + ylab("Frecuencia (cantidad)")
+
 ```
+
+```{r}
+ggplot(thre_td[1:20,]) + 
+  geom_bar(aes(x = reorder(term,count), y = count), stat="identity") + 
+  coord_flip() + 
+  ggtitle("Top 20 palabras de la coleccion threads") + 
+  xlab("Palabra") + ylab("Frecuencia (cantidad)")
+```
+
 
 Resumen de datos obtenidos, junto con la boxplot de las palabras
 
@@ -143,6 +190,16 @@ ggplot(inst_td, aes(x = count)) +
   
 boxplot(inst_td$count, main = "Distribucion palabras", ylim = c(0,40000), horizontal = TRUE)
 ```
+
+```{r}
+summary(thre_td)
+quantile(thre_td$count, seq(0,1,0.25))
+ggplot(thre_td, aes(x = count)) +
+  geom_boxplot() +
+  coord_flip() +
+  coord_cartesian(xlim = c(0,1000))
+  
+boxplot(thre_td$count, main = "Distribucion palabras", ylim = c(0,1000), horizontal = TRUE)
 ```
 
 
