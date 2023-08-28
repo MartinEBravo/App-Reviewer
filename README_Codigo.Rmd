@@ -39,27 +39,38 @@ docs_insta <- VCorpus(docs_insta)
 Remover datos no interesantes
 
 ```{r}
-docs_insta <- tm_map(docs_insta, removePunctuation)
-docs_insta <- tm_map(docs_insta, removeNumbers)
-docs_insta <- tm_map(docs_insta, content_transformer(tolower))
-docs_insta <- tm_map(docs_insta, stripWhitespace)
-#docs_insta <- tm_map(docs_insta, content_transformer(gsub), pattern = "'", replacement = " ")
-docs_insta <- tm_map(docs_insta, content_transformer(gsub), pattern = '[[:digit:]]+', replacement = "")
+docs_insta <- tm_map(docs_insta, removePunctuation) # Remover la puntuacion
+docs_insta <- tm_map(docs_insta, removeNumbers) # Remover lo relacionado a numeros del texto
+docs_insta <- tm_map(docs_insta, content_transformer(tolower)) # Poner todo en minuscula
+docs_insta <- tm_map(docs_insta, stripWhitespace) # Modificar los espacios en blanco a que sean uno solo
+docs_insta <- tm_map(docs_insta, content_transformer(gsub), pattern = '[[:digit:]]+', replacement = "") # Eliminar digitos
 
 
-docs_insta <- tm_map(docs_insta, removeWords, stopwords("en"))
-#docs_insta <- tm_map(docs_insta, replace_symbol)
+docs_insta <- tm_map(docs_insta, removeWords, stopwords("en")) # Eliminar las stopwords en ingles
+
+# Funciones para remover aspectos en especifico de los comentarios, como urls, simbolos, etc. Falta añadir filtros de emojis y cosas por el estilo
+twitterHandleRemover <- function(x) gsub("@\\S+","", x)
+shortWordRemover <- function(x) gsub('\\b\\w{1,5}\\b','',x)
+urlRemover <- function(x) gsub("http:[[:alnum:]]*","", x)
+hashtagRemover <- function(x) gsub("#\\S+","", x)
+
+docs_insta <- tm_map(docs_insta, content_transformer(urlRemover))
+docs_insta <- tm_map(docs_insta, content_transformer(shortWordRemover))
+docs_insta <- tm_map(docs_insta, content_transformer(twitterHandleRemover))
+docs_insta <- tm_map(docs_insta, content_transformer(hashtagRemover))
 
 ```
 
 ```{r}
-head(stopwords("en"),100)
+# Para ver cuales son las stopwords
+head(stopwords("en"),50)
 ```
 
 
 Matriz Doc termino
 
 ```{r}
+# Generacion de matriz por cada palabra detectada en cada oracion
 dtm <- DocumentTermMatrix(docs_insta)
 inspect(dtm)
 ```
@@ -82,12 +93,16 @@ library(qdap)
 library(dplyr)
 library(tidytext) # use esta libreria, si hay mejores opciones avisen
 
+# Aqui se ordena una tabla que contendra la informacion de cantidad de palabras en total existentes en la matriz, sumandose todas las repeticiones a modo de frecuencia
 inst_td <- tidy(dtm)
 inst_td <- aggregate(count ~ term, inst_td, sum)
 inst_td <- inst_td[order(inst_td$count, decreasing = TRUE),]
+inst_td <- inst_td[inst_td$count >= 50, ]
 inst_td
 
 ```
+
+Esto era el codigo original que se mostraba en el tutorial, al menos a mi (Felipe V) no me funciono, pero lo dejo aqui si quieren revisar como hacerlo funcionar
 
 ```{r}
 #dtm_ordered <- dtm[order(dtm)]
@@ -116,6 +131,19 @@ ggplot(inst_td[1:20,]) +
   xlab("Palabra") + ylab("Frecuencia (cantidad)")
 ```
 
+Resumen de datos obtenidos, junto con la boxplot de las palabras
+
+```{r}
+summary(inst_td)
+quantile(inst_td$count, seq(0,1,0.25))
+ggplot(inst_td, aes(x = count)) +
+  geom_boxplot() +
+  coord_flip() +
+  coord_cartesian(xlim = c(0,40000))
+  
+boxplot(inst_td$count, main = "Distribucion palabras", ylim = c(0,40000), horizontal = TRUE)
+```
+```
 
 
 
