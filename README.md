@@ -4,6 +4,6 @@ El objetivo de este proyecto es sacar información sobre reviews de aplicaciones
 
 ## Hito 0
 
-ME ESTAN PEGANDO MI ´PAPITO
+
 
 
